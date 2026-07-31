@@ -3,4 +3,4 @@ from .models import Listing
 
 @admin.register(Listing)
 class ListingAdmin(admin.ModelAdmin):
-    list_display = ('title', 'current_price', 'is_active', 'start_time', 'end_time')
+    list_display = ('title', 'current_price', 'is_active_now', 'start_time', 'end_time')
