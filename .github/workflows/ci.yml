@@ -1,0 +1,32 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:6
+        ports:
+          - 6379:6379
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r zayidni/requirements.txt
+      - name: Run migrations
+        env:
+          DJANGO_SETTINGS_MODULE: zayidni.test_settings
+        run: |
+          python zayidni/manage.py migrate --noinput
+      - name: Run tests
+        env:
+          DJANGO_SETTINGS_MODULE: zayidni.test_settings
+        run: |
+          python zayidni/manage.py test --verbosity=2
