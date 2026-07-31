@@ -1,7 +1,10 @@
 from django.views.decorators.csrf import csrf_exempt
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.views import View
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status, permissions
 import json
 from .models import Transaction
 from listings.models import Listing
@@ -10,7 +13,7 @@ from notifications.models import Notification
 @csrf_exempt
 def gateway_webhook(request):
     """Simple webhook receiver for payment gateway simulation.
-    Expected JSON: {event: 'hold_created'|'hold_captured'|'refund'|'hold_released', transaction_id, gateway_id, amount}
+    Expected JSON: {event: 'hold_created'|'captured'|'refund'|'hold_released', transaction_id, gateway_id, amount}
     """
     if request.method != 'POST':
         return JsonResponse({'detail':'method not allowed'}, status=405)
@@ -38,11 +41,12 @@ def gateway_webhook(request):
         Notification.objects.create(user=tx.buyer, type='payment_held', content=f'Held {tx.amount} {tx.currency} for listing {tx.listing.title}')
         Notification.objects.create(user=tx.seller, type='payment_pending', content=f'Buyer has initiated payment for {tx.listing.title}')
         return JsonResponse({'ok':True})
-    elif event == 'hold_released' or event == 'captured':
+    elif event == 'captured' or event == 'hold_released':
         tx.status = Transaction.STATUS_RELEASED
         tx.gateway_id = gateway_id
         tx.save()
         Notification.objects.create(user=tx.seller, type='payment_released', content=f'Payment released for {tx.listing.title}')
+        Notification.objects.create(user=tx.buyer, type='payment_released_buyer', content=f'Payment released to seller for {tx.listing.title}')
         return JsonResponse({'ok':True})
     elif event == 'refund':
         tx.status = Transaction.STATUS_REFUNDED
@@ -51,3 +55,43 @@ def gateway_webhook(request):
         return JsonResponse({'ok':True})
     else:
         return JsonResponse({'detail':'unknown event'}, status=400)
+
+
+class CreatePaymentSessionView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        tx_id = request.data.get('transaction_id')
+        if not tx_id:
+            return Response({'detail': 'transaction_id required'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            tx = Transaction.objects.get(id=tx_id)
+        except Transaction.DoesNotExist:
+            return Response({'detail': 'transaction not found'}, status=status.HTTP_404_NOT_FOUND)
+        if tx.status != Transaction.STATUS_PENDING:
+            return Response({'detail': 'transaction not in pending state'}, status=status.HTTP_400_BAD_REQUEST)
+        # In production, create gateway session and return payment URL. For sandbox, return internal sandbox URL
+        scheme = 'https' if request.is_secure() else 'http'
+        host = request.get_host()
+        payment_url = f"{scheme}://{host}/api/payments/sandbox/pay/{tx.id}/"
+        return Response({'payment_url': payment_url})
+
+
+class SandboxPayView(View):
+    """Simple HTML page to simulate payment gateway actions for a transaction."""
+    def get(self, request, tx_id):
+        try:
+            tx = Transaction.objects.get(id=tx_id)
+        except Transaction.DoesNotExist:
+            return HttpResponse('Transaction not found', status=404)
+        html = f"""
+        <html><head><meta charset='utf-8'><title>Sandbox Pay - {tx.id}</title></head><body>
+        <h3>Sandbox Payment Simulator for Transaction {tx.id}</h3>
+        <p>Amount: {tx.amount} {tx.currency}</p>
+        <button onclick="fetch('/api/payments/webhook/',{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{event:'hold_created',transaction_id:'{tx.id}',gateway_id:'sandbox-1',amount:'{tx.amount}'}})}).then(r=>r.json()).then(a=>alert(JSON.stringify(a)))">Simulate Hold Created</button>
+        <button onclick="fetch('/api/payments/webhook/',{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{event:'captured',transaction_id:'{tx.id}',gateway_id:'sandbox-1',amount:'{tx.amount}'}})}).then(r=>r.json()).then(a=>alert(JSON.stringify(a)))">Simulate Capture (release funds)</button>
+        <button onclick="fetch('/api/payments/webhook/',{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{event:'refund',transaction_id:'{tx.id}',gateway_id:'sandbox-1',amount:'{tx.amount}'}})}).then(r=>r.json()).then(a=>alert(JSON.stringify(a)))">Simulate Refund</button>
+        <p>These buttons POST to /api/payments/webhook/ to simulate gateway webhooks.</p>
+        </body></html>
+        """
+        return HttpResponse(html)
