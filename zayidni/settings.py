@@ -27,12 +27,33 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.locale.LocaleMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+# Internationalization / supported languages
+LANGUAGES = [
+    ('ar', 'Arabic'),
+    ('ku', 'Kurdish'),
+    ('en', 'English'),
+]
+LANGUAGE_CODE = 'ar'
+
+# REST Framework throttling to mitigate fake-bid spam
+REST_FRAMEWORK = {
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '10/min',
+        'user': '30/min',
+    }
+}
 
 ROOT_URLCONF = 'zayidni.urls'
 

@@ -25,6 +25,11 @@ class Listing(models.Model):
     start_time = models.DateTimeField()
     end_time = models.DateTimeField()
 
+    # contact options for seller (seller can choose to allow contact info to be shown)
+    allow_contact_info = models.BooleanField(default=False)
+    contact_phone = models.CharField(max_length=32, blank=True, null=True)
+    contact_email = models.CharField(max_length=255, blank=True, null=True)
+
     def __str__(self):
         return self.title
 
