@@ -57,6 +57,23 @@ def gateway_webhook(request):
         return JsonResponse({'detail':'unknown event'}, status=400)
 
 
+class PendingForListingView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        listing_id = request.GET.get('listing_id')
+        if not listing_id:
+            return Response({'detail': 'listing_id required'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            listing = Listing.objects.get(id=listing_id)
+        except Listing.DoesNotExist:
+            return Response({'detail': 'listing not found'}, status=status.HTTP_404_NOT_FOUND)
+        tx = Transaction.objects.filter(listing=listing, buyer=request.user, status__in=[Transaction.STATUS_PENDING, Transaction.STATUS_HELD]).order_by('-created_at').first()
+        if not tx:
+            return Response({'found': False})
+        return Response({'found': True, 'transaction_id': str(tx.id), 'status': tx.status})
+
+
 class CreatePaymentSessionView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
