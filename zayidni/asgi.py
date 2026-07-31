@@ -1,12 +1,20 @@
 import os
 from django.core.asgi import get_asgi_application
-from channels.routing import ProtocolTypeRouter
+from channels.routing import ProtocolTypeRouter, URLRouter
+from channels.auth import AuthMiddlewareStack
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'zayidni.settings')
 
 django_asgi_app = get_asgi_application()
 
+# Import websocket routing from bids app
+import bids.routing
+
 application = ProtocolTypeRouter({
     'http': django_asgi_app,
-    # WebSocket routing to be added in listings app
+    'websocket': AuthMiddlewareStack(
+        URLRouter(
+            bids.routing.websocket_urlpatterns
+        )
+    ),
 })

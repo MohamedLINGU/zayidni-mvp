@@ -37,5 +37,22 @@ class PlaceBidView(APIView):
             listing.current_price = amount
             listing.save()
 
-        # TODO: broadcast via Channels to websocket group for listing
+        # broadcast via Channels to websocket group for listing
+        try:
+            from asgiref.sync import async_to_sync
+            from channels.layers import get_channel_layer
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                f'listing_{listing.id}',
+                {
+                    'type': 'price_update',
+                    'listing_id': listing.id,
+                    'current_price': str(amount),
+                    'bidder': str(request.user.username),
+                }
+            )
+        except Exception:
+            # Don't fail the request if broadcasting fails; log in production
+            pass
+
         return Response(BidSerializer(bid).data, status=status.HTTP_201_CREATED)
