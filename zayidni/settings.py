@@ -102,6 +102,19 @@ else:
         }
     }
 
+# Celery configuration (broker URL via env)
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', os.environ.get('REDIS_URL', 'redis://localhost:6379/0'))
+CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', CELERY_BROKER_URL)
+
+# Example beat schedule (uncomment to use django-celery-beat or configure in production)
+# from celery.schedules import crontab
+# CELERY_BEAT_SCHEDULE = {
+#    'close-auctions-every-minute': {
+#        'task': 'listings.tasks.close_ended_auctions',
+#        'schedule': crontab(minute='*/1'),
+#    }
+# }
+
 AUTH_PASSWORD_VALIDATORS = []
 
 LANGUAGE_CODE = 'en-us'
