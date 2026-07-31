@@ -1,5 +1,8 @@
 from django.db import models
 
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
 class Bid(models.Model):
     listing = models.ForeignKey('listings.Listing', on_delete=models.CASCADE, related_name='bids')
     bidder = models.ForeignKey('auth.User', on_delete=models.CASCADE)
@@ -15,3 +18,12 @@ class Bid(models.Model):
 
     def __str__(self):
         return f"{self.bidder} -> {self.amount}"
+
+
+@receiver(post_save, sender=Bid)
+def update_listing_price(sender, instance, created, **kwargs):
+    if created:
+        listing = instance.listing
+        listing.current_price = instance.amount
+        listing.save(update_fields=['current_price'])
+
