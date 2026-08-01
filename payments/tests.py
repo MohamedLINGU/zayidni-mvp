@@ -16,13 +16,9 @@ class PaymentsFlowTest(TestCase):
         User = get_user_model()
         self.seller = User.objects.create_user(username='seller', password='pw')
         self.buyer = User.objects.create_user(username='buyer', password='pw')
-        # set profile phone and mark verified if Profile exists
-        try:
-            self.buyer.profile.phone = '888'
-            self.buyer.profile.phone_verified = True
-            self.buyer.profile.save()
-        except Exception:
-            pass
+        # create profile and mark verified
+        from users.models import Profile
+        Profile.objects.create(user=self.buyer, phone='888', is_phone_verified=True)
 
         now = timezone.now()
         self.listing = Listing.objects.create(

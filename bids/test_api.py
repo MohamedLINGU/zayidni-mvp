@@ -11,12 +11,9 @@ class BidAPITest(TestCase):
         User = get_user_model()
         self.seller = User.objects.create_user(username='seller2', password='pass')
         self.bidder = User.objects.create_user(username='bidder', password='pass')
-        # mark bidder phone verified if Profile exists
-        try:
-            self.bidder.profile.phone_verified = True
-            self.bidder.profile.save()
-        except Exception:
-            pass
+        # create profile and mark bidder phone verified
+        from users.models import Profile
+        Profile.objects.create(user=self.bidder, phone='555', is_phone_verified=True)
         now = timezone.now()
         self.listing = Listing.objects.create(
             title='TestAPI',
