@@ -10,6 +10,12 @@ variable "ssh_public_key_path" {
   default     = "~/.ssh/id_rsa.pub"
 }
 
+variable "ssh_public_key" {
+  description = "Public SSH key content (use this or ssh_public_key_path). Provide via TF_VAR_SSH_PUBLIC_KEY as secret to avoid storing keys in repo."
+  type        = string
+  default     = ""
+}
+
 variable "region" {
   description = "DigitalOcean region"
   type        = string
