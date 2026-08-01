@@ -1,0 +1,73 @@
+name: Ephemeral Dev Preview 2
+
+on:
+  workflow_dispatch:
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install daphne localtunnel
+
+      - name: Prepare minimal env
+        run: |
+          cat > .env.preview <<'ENV'
+DEBUG=True
+SECRET_KEY=preview-secret
+DATABASE_URL=sqlite:///db.sqlite3
+ENV
+
+      - name: Run migrations
+        env:
+          DJANGO_SETTINGS_MODULE: zayidni.settings
+        run: |
+          python manage.py migrate --noinput || true
+
+      - name: Start Django development server
+        run: |
+          nohup python manage.py runserver 0.0.0.0:8000 &
+          sleep 2
+          ps aux | grep manage.py || true
+
+      - name: Start localtunnel
+        id: tunnel
+        run: |
+          npx localtunnel --port 8000 > lt.txt 2>&1 &
+          LT_PID=$!
+          for i in {1..20}; do
+            sleep 1
+            URL=$(grep -oE "https?://[a-z0-9.-]*localtunnel.me" lt.txt | head -n1 || true)
+            if [ -n "$URL" ]; then break; fi
+          done
+          echo "Tunnel logs:"; sed -n '1,200p' lt.txt
+          if [ -z "$URL" ]; then cat lt.txt; echo "No tunnel URL"; exit 1; fi
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo $LT_PID > lt.pid
+
+      - name: Print access info
+        run: |
+          echo "Preview URL: ${{ steps.tunnel.outputs.url }}"
+          echo "Preview will run for 30 minutes. Cancel the run to stop earlier."
+
+      - name: Keep preview alive
+        run: |
+          sleep 1800
+
+      - name: Teardown
+        if: always()
+        run: |
+          echo "Stopping preview"
+          if [ -f lt.pid ]; then kill $(cat lt.pid) || true; fi
