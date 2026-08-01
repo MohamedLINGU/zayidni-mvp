@@ -24,12 +24,14 @@ class PaymentsFlowTest(TestCase):
         except Exception:
             pass
 
+        now = timezone.now()
         self.listing = Listing.objects.create(
             title='Test Listing',
             seller=self.seller,
             starting_price=10,
             current_price=10,
-            end_time=timezone.now() - timedelta(minutes=1),
+            start_time=now - timedelta(minutes=5),
+            end_time=now - timedelta(minutes=1),
             min_increment=5,
         )
         Bid.objects.create(listing=self.listing, bidder=self.buyer, amount=100)
