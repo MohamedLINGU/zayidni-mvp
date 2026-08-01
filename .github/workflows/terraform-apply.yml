@@ -1,0 +1,35 @@
+name: Terraform Apply (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      approve:
+        description: 'Type YES to confirm apply (safety)'
+        required: true
+        default: 'NO'
+
+jobs:
+  terraform-apply:
+    if: github.event.inputs.approve == 'YES'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.7
+
+      - name: Terraform Init
+        working-directory: infra/terraform
+        run: terraform init -input=false
+
+      - name: Terraform Apply
+        working-directory: infra/terraform
+        env:
+          TF_VAR_do_token: ${{ secrets.TF_VAR_DO_TOKEN }}
+          TF_VAR_ssh_public_key_path: ${{ secrets.TF_VAR_SSH_PUBLIC_KEY_PATH }}
+        run: |
+          terraform apply -input=false -auto-approve
