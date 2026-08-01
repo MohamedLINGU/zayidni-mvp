@@ -1,0 +1,28 @@
+#cloud-config
+users:
+  - name: deploy
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    lock_passwd: true
+    ssh_authorized_keys:
+      - "{{YOUR_SSH_PUBLIC_KEY}}"
+
+packages:
+  - apt-transport-https
+  - ca-certificates
+  - curl
+  - gnupg-agent
+  - software-properties-common
+
+runcmd:
+  - [ sh, -c, 'curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg' ]
+  - [ sh, -c, 'echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null' ]
+  - [ sh, -c, 'apt-get update' ]
+  - [ sh, -c, 'apt-get install -y docker-ce docker-ce-cli containerd.io' ]
+  - [ sh, -c, 'curl -L "https://github.com/docker/compose/releases/download/v2.20.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose' ]
+  - [ sh, -c, 'chmod +x /usr/local/bin/docker-compose' ]
+  - [ sh, -c, 'usermod -aG docker deploy' ]
+  - [ sh, -c, 'mkdir -p /home/deploy/apps/zayidni' ]
+  - [ sh, -c, 'chown -R deploy:deploy /home/deploy/apps' ]
+
+final_message: "The system is ready. Run the deploy script (rsync/compose) to push the app code."
