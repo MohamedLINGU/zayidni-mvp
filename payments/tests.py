@@ -35,7 +35,8 @@ class PaymentsFlowTest(TestCase):
 
     def test_close_creates_transaction_and_webhook_updates(self):
         # run the closing task which should create a Transaction when a winner exists
-        close_ended_auctions()
+        # call the task implementation directly (.run) to execute synchronously in tests
+        close_ended_auctions.run()
         tx = Transaction.objects.get(listing=self.listing)
         self.assertIsNotNone(tx)
         # expect initial pending hold status (string name may vary by implementation)
