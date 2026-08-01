@@ -26,6 +26,7 @@ class PaymentsFlowTest(TestCase):
             seller=self.seller,
             starting_price=10,
             current_price=10,
+            status=Listing.STATUS_ACTIVE,
             start_time=now - timedelta(minutes=5),
             end_time=now - timedelta(minutes=1),
             min_increment=5,
