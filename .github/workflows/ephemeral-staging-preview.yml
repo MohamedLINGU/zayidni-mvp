@@ -1,0 +1,77 @@
+﻿name: Ephemeral Staging Preview
+
+on:
+  workflow_dispatch:
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install prerequisites
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y docker.io npm
+          sudo apt-get install -y docker-compose-plugin || true
+
+      - name: Start docker-compose staging
+        run: |
+          if [ -f docker-compose.staging.yml ]; then
+            docker compose -f docker-compose.staging.yml up -d --build
+          elif [ -f docker-compose.yml ]; then
+            docker compose up -d --build
+          else
+            echo "No docker-compose file found; exiting"; exit 1
+          fi
+
+      - name: Wait for services
+        run: |
+          sleep 8
+          docker ps --format '{{.Names}}\t{{.Ports}}'
+
+      - name: Install localtunnel
+        run: |
+          npm install -g localtunnel
+
+      - name: Start tunnel and expose port
+        id: tunnel
+        run: |
+          PORT=8000
+          if docker ps --format '{{.Ports}}' | grep -q ":8000->"; then PORT=8000; fi
+          if docker ps --format '{{.Ports}}' | grep -q ":3000->"; then PORT=3000; fi
+          if docker ps --format '{{.Ports}}' | grep -q ":8080->"; then PORT=8080; fi
+
+          echo "Starting localtunnel on port $PORT"
+          npx localtunnel --port $PORT > lt.txt 2>&1 &
+          LT_PID=$!
+          for i in {1..20}; do
+            if grep -q "http" lt.txt; then break; fi
+            sleep 1
+          done
+          LT_URL=$(grep -oE "https?://[^"]+" lt.txt | head -n1 || true)
+          echo "Tunnel output:"; sed -n '1,200p' lt.txt
+          if [ -z "$LT_URL" ]; then
+            echo "Could not determine tunnel URL from localtunnel output"; exit 1
+          fi
+          echo "url=$LT_URL" >> "$GITHUB_OUTPUT"
+          echo $LT_PID > lt.pid
+          echo "Tunnel URL: $LT_URL"
+
+      - name: Print access info
+        run: |
+          echo "Preview URL: ${{ steps.tunnel.outputs.url }}"
+          echo "Workflow will keep the preview up for 30 minutes. To stop earlier, cancel the run."
+
+      - name: Keep preview alive
+        run: |
+          sleep 1800
+
+      - name: Teardown preview
+        if: always()
+        run: |
+          echo "Tearing down preview"
+          docker compose -f docker-compose.staging.yml down || true
+          if [ -f lt.pid ]; then kill $(cat lt.pid) || true; fi
