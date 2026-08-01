@@ -13,7 +13,7 @@ provider "digitalocean" {
 
 resource "digitalocean_ssh_key" "deploy" {
   name       = "zayidni-deploy-key"
-  public_key = length(var.ssh_public_key) > 0 ? var.ssh_public_key : file(var.ssh_public_key_path)
+  public_key = can(file(var.ssh_public_key_path)) ? file(var.ssh_public_key_path) : var.ssh_public_key
 }
 
 resource "digitalocean_droplet" "app" {
